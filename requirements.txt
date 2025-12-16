@@ -1,2 +1,8 @@
 nltk
 numpy
+wordcloud
+pandas
+spacy
+pandas 
+matplotlib 
+scikit-learn

@@ -129,16 +129,15 @@ def plot_results(entity_counts, type_counts):
         print("No entities found to visualize.")
         return
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    fig.suptitle('Trending Topics Analysis (Sampled Data)', fontsize=16)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 12))
 
     # 1. Bar Chart: Top 20 Entities
-    top_entities = entity_counts.most_common(20)
+    top_entities = entity_counts.most_common(10)
     if top_entities:
         names, counts = zip(*top_entities)
         ax1.barh(names, counts, color='skyblue')
         ax1.set_xlabel('Frequency')
-        ax1.set_title('Top 20 Trending Entities')
+        ax1.set_title('Top 10 Trending Entities')
         ax1.invert_yaxis()
     else:
         ax1.text(0.5, 0.5, 'No Data', ha='center')
@@ -148,11 +147,8 @@ def plot_results(entity_counts, type_counts):
         labels = type_counts.keys()
         sizes = type_counts.values()
         ax2.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-        ax2.set_title('Distribution of Entity Types')
     else:
         ax2.text(0.5, 0.5, 'No Data', ha='center')
-
-    plt.tight_layout()
     plt.show()
 
 def generate_wordcloud(entity_list):
@@ -167,7 +163,6 @@ def generate_wordcloud(entity_list):
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis('off')
-    plt.title("Trending Topics Word Cloud")
     plt.show()
 
 # --- 5. MAIN APPLICATION LOOP ---
@@ -231,6 +226,9 @@ def main():
     
     plot_results(entity_counts, type_counts)
     generate_wordcloud(all_entities)
+
+    print("Top 10 Entities:", entity_counts.most_common(10))
+
 
 if __name__ == "__main__":
     main()
