@@ -8,6 +8,33 @@ from collections import Counter
 import time
 import re
 import sys
+import pickle
+import os
+
+# --- SYSTEM VARIABLE
+MAXIMUM_ROWS = 1000
+RESULT_DIRECTORY = 'result'
+
+# --- STORAGE UTILITIES ---
+
+def get_dataset_name(filepath):
+    if not filepath:
+        return "sample"
+    return os.path.splitext(os.path.basename(filepath))[0]
+
+def get_dataset_folder(dataset_name):
+    return os.path.join(os.getcwd(), dataset_name)
+
+def save_results(folder, data):
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, "results.pkl"), "wb") as f:
+        pickle.dump(data, f)
+    print(f"Results saved to folder: {folder}")
+
+def load_results(folder):
+    with open(os.path.join(folder, "results.pkl"), "rb") as f:
+        return pickle.load(f)
+
 
 # --- 1. CONFIGURATION & SETUP ---
 def download_nltk_resources():
@@ -172,6 +199,28 @@ def generate_wordcloud(entity_list):
 
 # --- 5. MAIN APPLICATION LOOP ---
 
+def show_results(results):
+    total_time = results["total_time"]
+    avg_time = results["avg_time"]
+    total_entities = results["total_entities"]
+
+    print("\n" + "="*40)
+    print("EVALUATION METRICS")
+    print("="*40)
+    print(f"Total Processing Time:    {total_time:.4f} seconds")
+    print(f"Avg Time per Headline:    {avg_time:.4f} seconds")
+    print(f"Total Entities Found:     {total_entities}")
+    print("="*40)
+
+    print("Generating visualizations...")
+
+    entity_counts = results["entity_counts"]
+    type_counts = results["type_counts"]
+    all_entities = results["all_entities"]
+
+    plot_results(entity_counts, type_counts)
+    generate_wordcloud(all_entities)
+
 def main():
     print("--- NLP TERM PROJECT: TRENDING TOPIC TRACKER ---")
     download_nltk_resources()
@@ -180,15 +229,32 @@ def main():
     print("\nDo you want to upload a dataset? (Enter filename path, or press ENTER for Sample Data)")
     user_path = input("Path to CSV/JSON: ").strip()
     
+    dataset_name = get_dataset_name(user_path)
+    dataset_folder = get_dataset_folder(RESULT_DIRECTORY + '/' + dataset_name)
+
+    # Check if dataset already processed
+    if os.path.exists(dataset_folder):
+        print(f"\nDataset '{dataset_name}' has been processed before.")
+        choice = input("Are you sure you want to do it all over again? (y/n): ").strip().lower()
+
+        if choice != 'y':
+            print("Loading previously saved results...")
+            saved = load_results(dataset_folder)
+            show_results(saved)
+            return
+        else:
+            print("Retraining and overwriting previous results...\n")
+
     headlines = load_data(user_path if user_path else None)
+
     
     if not headlines:
         sys.exit("No data to process.")
 
     # --- RESTORED LIMITER ---
-    if len(headlines) > 5000:
-        print(f"Dataset is large ({len(headlines)} items). Processing first 1000 for efficiency.")
-        headlines = headlines[:1000]
+    if len(headlines) > MAXIMUM_ROWS:
+        print(f"Dataset is large ({len(headlines)} items). Processing first {MAXIMUM_ROWS} for efficiency.")
+        headlines = headlines[:MAXIMUM_ROWS]
     else:
         print(f"Processing {len(headlines)} headlines...")
     
@@ -208,7 +274,7 @@ def main():
             all_entities.append(name)
             all_entity_types.append(label)
             
-        if (i + 1) % 100 == 0:
+        if (i + 1) % int(MAXIMUM_ROWS/10) == 0:
             print(f"Processed {i + 1}/{total_items} items...")
             
     end_time = time.time()
@@ -217,20 +283,22 @@ def main():
     total_time = end_time - start_time
     avg_time = total_time / len(headlines) if len(headlines) > 0 else 0
     
-    print("\n" + "="*40)
-    print("EVALUATION METRICS")
-    print("="*40)
-    print(f"Total Processing Time:    {total_time:.4f} seconds")
-    print(f"Avg Time per Headline:    {avg_time:.4f} seconds")
-    print(f"Total Entities Found:     {len(all_entities)}")
-    print("="*40)
-
-    print("Generating visualizations...")
     entity_counts = Counter(all_entities)
     type_counts = Counter(all_entity_types)
+    results = {
+        "entity_counts": entity_counts,
+        "type_counts": type_counts,
+        "all_entities": all_entities,
+        "total_time": total_time,
+        "avg_time": avg_time,
+        "total_entities": len(all_entities)
+    }
     
-    plot_results(entity_counts, type_counts)
-    generate_wordcloud(all_entities)
+    show_results(results)
+    # --- SAVE RESULTS ---
+
+    save_results(dataset_folder, results)
+
 
 if __name__ == "__main__":
     main()
